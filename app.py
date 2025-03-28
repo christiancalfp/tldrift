@@ -52,7 +52,21 @@ try:
     # Direct method for client initialization
     logger.info("Attempting to initialize OpenAI client with direct method...")
     import openai
+    
+    # Clear any proxy settings that might be causing issues
+    logger.info("Clearing any proxy settings in the environment...")
+    if 'http_proxy' in os.environ:
+        logger.info("Removing http_proxy from environment")
+        del os.environ['http_proxy']
+    if 'https_proxy' in os.environ:
+        logger.info("Removing https_proxy from environment")
+        del os.environ['https_proxy']
+    
+    # Set API key without proxies
     openai.api_key = OPENAI_API_KEY
+    
+    # Ensure no proxies are used in the module
+    openai.proxy = None
     
     # Test if the client works with a simple API call
     logger.info("Testing openai module...")
@@ -75,7 +89,16 @@ except Exception as e:
     try:
         logger.info("Attempting second initialization method with OpenAI class...")
         from openai import OpenAI
-        client = OpenAI(api_key=OPENAI_API_KEY)
+        
+        # Create a clean configuration with no proxies
+        logger.info("Creating OpenAI client with explicit no-proxy configuration...")
+        client = OpenAI(
+            api_key=OPENAI_API_KEY,
+            base_url="https://api.openai.com/v1",  # Use default API endpoint
+            timeout=60.0,  # Use default timeout
+            max_retries=2  # Use reasonable retry count
+            # No proxies parameter
+        )
         
         # Test with a simple model list
         models = client.models.list()
@@ -87,9 +110,27 @@ except Exception as e:
         # Final fallback to environment variable approach
         try:
             logger.info("Attempting final initialization method via environment...")
+            # Set environment variables directly
             os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+            
+            # Attempt to import without the OpenAI module cache
+            logger.info("Reloading OpenAI module to clear any cached settings...")
+            import sys
+            if 'openai' in sys.modules:
+                del sys.modules['openai']
+            
+            # Re-import fresh copy
             from openai import OpenAI
-            client = OpenAI()  # This will use the environment variable
+            
+            # Create custom configuration for HTTP client
+            import httpx
+            transport = httpx.HTTPTransport(local_address="0.0.0.0")
+            http_client = httpx.Client(transport=transport)
+            
+            client = OpenAI(
+                api_key=OPENAI_API_KEY,
+                http_client=http_client
+            )
             
             # Test connection
             logger.info("Testing final initialization method...")
