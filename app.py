@@ -37,19 +37,45 @@ if not OPENAI_API_KEY:
     logger.error("FATAL: OPENAI_API_KEY environment variable not set.")
     # You might want to exit or raise an exception here in a real app
     # raise ValueError("OPENAI_API_KEY environment variable not set.")
+else:
+    # Log a masked version of the key for debugging
+    masked_key = OPENAI_API_KEY[:4] + "..." + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 8 else "***"
+    logger.info(f"OpenAI API key found with format: {masked_key}")
 
 # Initialize OpenAI Client (using v1.0+ syntax)
+client = None
 try:
     # Only use the API key parameter, no other parameters
+    logger.info("Attempting to initialize OpenAI client...")
     client = OpenAI(api_key=OPENAI_API_KEY)
     # Test if the client works
     logger.info("Testing OpenAI client connection...")
     models = client.models.list()
     logger.info(f"OpenAI client initialized successfully. Available models: {[model.id for model in models][:3]}...")
-except Exception as e:
-    logger.error(f"Failed to initialize OpenAI client: {e}")
-    client = None  # Set to None so we can check later
-    # Handle initialization error appropriately
+except Exception as primary_error:
+    logger.error(f"Failed to initialize OpenAI client with primary method: {primary_error}")
+    logger.error(f"Exception type: {type(primary_error).__name__}")
+    logger.error(f"API key format check: Key starts with 'sk-' and has appropriate length: {OPENAI_API_KEY.startswith('sk-') and len(OPENAI_API_KEY) > 20}")
+    
+    # Try alternate initialization methods
+    try:
+        logger.info("Attempting alternate initialization method...")
+        import openai
+        openai.api_key = OPENAI_API_KEY
+        
+        # Try a simple completion to test
+        logger.info("Testing alternate client with a simple completion...")
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "Hello!"}],
+            max_tokens=5
+        )
+        logger.info(f"Alternate client works! Response: {response.choices[0].message.content}")
+        client = openai
+    except Exception as fallback_error:
+        logger.error(f"Fallback initialization also failed: {fallback_error}")
+        logger.error(f"Fallback error type: {type(fallback_error).__name__}")
+        client = None  # Set to None so we can check later
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -176,38 +202,37 @@ def get_toned_summary(text, tone, length='medium'):
 Never include the word 'Summary:' in your response."""
 
         try:
-            # Try with GPT-4 first, but fall back to GPT-3.5-Turbo if needed
+            # Use gpt-3.5-turbo for compatibility
             model_to_use = "gpt-3.5-turbo"
             logger.info(f"Using model: {model_to_use}")
             
+            # Create messages array for API call
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": summary_prompt}
+            ]
+            
+            # Call the API using the appropriate client method
+            logger.info("Calling OpenAI API for summary generation...")
             summary_response = client.chat.completions.create(
                 model=model_to_use,
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": summary_prompt}
-                ],
+                messages=messages,
                 max_tokens=adjusted_max_tokens,
                 temperature=0.3,  # Lower temperature for more consistent formatting
             )
+            
+            # Extract content based on response format
+            if hasattr(summary_response.choices[0], 'message'):
+                initial_summary = summary_response.choices[0].message.content.strip()
+            else:
+                # Fallback in case of different response structure
+                initial_summary = summary_response.choices[0].text.strip()
+                
+            logger.info("Initial summary received.")
         except Exception as e:
-            logger.error(f"Error with first model choice: {e}")
-            # Fall back to gpt-3.5-turbo if gpt-4o isn't available
-            model_to_use = "gpt-3.5-turbo"
-            logger.info(f"Falling back to model: {model_to_use}")
+            logger.error(f"Error with summary generation: {e}")
+            return None, f"Failed to generate summary: {str(e)}"
             
-            summary_response = client.chat.completions.create(
-                model=model_to_use,
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": summary_prompt}
-                ],
-                max_tokens=adjusted_max_tokens,
-                temperature=0.3,
-            )
-            
-        initial_summary = summary_response.choices[0].message.content.strip()
-        logger.info("Initial summary received.")
-
         # Step 2: Apply the selected tone while maintaining length and format
         logger.info(f"Requesting toned summary (Tone: {tone})")
         tone_prompt = f"Current summary format: {length.upper()}\n\nRewrite with {tone} tone while maintaining the proper format for {length.upper()} summaries:\n\n{initial_summary}"
@@ -220,17 +245,28 @@ Never include the word 'Summary:' in your response."""
 
 Change ONLY the tone, not the format or structure. Never include the word 'Summary:' in your response."""
 
+        # Create messages array for tone API call
+        tone_messages = [
+            {"role": "system", "content": tone_system_message},
+            {"role": "user", "content": tone_prompt}
+        ]
+        
+        # Call the API again for tone application
+        logger.info("Calling OpenAI API for tone application...")
         toned_response = client.chat.completions.create(
             model=model_to_use,
-            messages=[
-                {"role": "system", "content": tone_system_message},
-                {"role": "user", "content": tone_prompt}
-            ],
+            messages=tone_messages,
             max_tokens=adjusted_max_tokens,
             temperature=0.5,  # Moderate temperature for tone variation while maintaining format
         )
-        final_summary = toned_response.choices[0].message.content.strip()
         
+        # Extract content based on response format
+        if hasattr(toned_response.choices[0], 'message'):
+            final_summary = toned_response.choices[0].message.content.strip()
+        else:
+            # Fallback in case of different response structure
+            final_summary = toned_response.choices[0].text.strip()
+            
         # Clean up any remaining "Summary:" prefix if it somehow appears
         final_summary = final_summary.replace("Summary:", "").strip()
         logger.info("Toned summary received.")
