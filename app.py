@@ -38,44 +38,71 @@ if not OPENAI_API_KEY:
     # You might want to exit or raise an exception here in a real app
     # raise ValueError("OPENAI_API_KEY environment variable not set.")
 else:
+    # Clean the API key - remove any quotes or whitespace
+    OPENAI_API_KEY = OPENAI_API_KEY.strip().strip("'").strip('"')
     # Log a masked version of the key for debugging
-    masked_key = OPENAI_API_KEY[:4] + "..." + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 8 else "***"
+    masked_key = OPENAI_API_KEY[:8] + "..." + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 12 else "***"
     logger.info(f"OpenAI API key found with format: {masked_key}")
+    logger.info(f"Key starts with: {OPENAI_API_KEY[:8]}")
+    logger.info(f"Key length: {len(OPENAI_API_KEY)}")
 
 # Initialize OpenAI Client (using v1.0+ syntax)
 client = None
 try:
-    # Only use the API key parameter, no other parameters
-    logger.info("Attempting to initialize OpenAI client...")
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    # Test if the client works
-    logger.info("Testing OpenAI client connection...")
-    models = client.models.list()
-    logger.info(f"OpenAI client initialized successfully. Available models: {[model.id for model in models][:3]}...")
-except Exception as primary_error:
-    logger.error(f"Failed to initialize OpenAI client with primary method: {primary_error}")
-    logger.error(f"Exception type: {type(primary_error).__name__}")
-    logger.error(f"API key format check: Key starts with 'sk-' and has appropriate length: {OPENAI_API_KEY.startswith('sk-') and len(OPENAI_API_KEY) > 20}")
+    # Direct method for client initialization
+    logger.info("Attempting to initialize OpenAI client with direct method...")
+    import openai
+    openai.api_key = OPENAI_API_KEY
     
-    # Try alternate initialization methods
+    # Test if the client works with a simple API call
+    logger.info("Testing openai module...")
+    response = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "Test message"}],
+        max_tokens=5
+    )
+    logger.info(f"OpenAI module test successful: {response.choices[0].message.content}")
+    
+    # If we get here, the module works, so use it
+    client = openai
+    logger.info("Using openai module as client")
+    
+except Exception as e:
+    logger.error(f"Failed first initialization method: {e}")
+    logger.error(f"First exception type: {type(e).__name__}")
+    
+    # Try second initialization method
     try:
-        logger.info("Attempting alternate initialization method...")
-        import openai
-        openai.api_key = OPENAI_API_KEY
+        logger.info("Attempting second initialization method with OpenAI class...")
+        from openai import OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
         
-        # Try a simple completion to test
-        logger.info("Testing alternate client with a simple completion...")
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "Hello!"}],
-            max_tokens=5
-        )
-        logger.info(f"Alternate client works! Response: {response.choices[0].message.content}")
-        client = openai
-    except Exception as fallback_error:
-        logger.error(f"Fallback initialization also failed: {fallback_error}")
-        logger.error(f"Fallback error type: {type(fallback_error).__name__}")
-        client = None  # Set to None so we can check later
+        # Test with a simple model list
+        models = client.models.list()
+        logger.info(f"Second method successful. Available models: {[m.id for m in models][:3]}")
+    except Exception as e2:
+        logger.error(f"Second initialization method also failed: {e2}")
+        logger.error(f"Second exception type: {type(e2).__name__}")
+        
+        # Final fallback to environment variable approach
+        try:
+            logger.info("Attempting final initialization method via environment...")
+            os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+            from openai import OpenAI
+            client = OpenAI()  # This will use the environment variable
+            
+            # Test connection
+            logger.info("Testing final initialization method...")
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": "Test"}],
+                max_tokens=5
+            )
+            logger.info(f"Final method successful: {response.choices[0].message.content}")
+        except Exception as e3:
+            logger.error(f"All initialization methods failed. Final error: {e3}")
+            logger.error(f"Final exception type: {type(e3).__name__}")
+            client = None
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -220,17 +247,24 @@ Never include the word 'Summary:' in your response."""
                 max_tokens=adjusted_max_tokens,
                 temperature=0.3,  # Lower temperature for more consistent formatting
             )
-            
+                
             # Extract content based on response format
+            logger.info(f"Summary response type: {type(summary_response)}")
             if hasattr(summary_response.choices[0], 'message'):
                 initial_summary = summary_response.choices[0].message.content.strip()
             else:
                 # Fallback in case of different response structure
-                initial_summary = summary_response.choices[0].text.strip()
-                
+                logger.info("Using alternate extraction method for summary")
+                if hasattr(summary_response.choices[0], 'text'):
+                    initial_summary = summary_response.choices[0].text.strip()
+                else:
+                    # Last resort for dictionary-like responses
+                    initial_summary = str(summary_response.choices[0]).strip()
+                    
             logger.info("Initial summary received.")
         except Exception as e:
             logger.error(f"Error with summary generation: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
             return None, f"Failed to generate summary: {str(e)}"
             
         # Step 2: Apply the selected tone while maintaining length and format
@@ -261,11 +295,17 @@ Change ONLY the tone, not the format or structure. Never include the word 'Summa
         )
         
         # Extract content based on response format
+        logger.info(f"Tone response type: {type(toned_response)}")
         if hasattr(toned_response.choices[0], 'message'):
             final_summary = toned_response.choices[0].message.content.strip()
         else:
             # Fallback in case of different response structure
-            final_summary = toned_response.choices[0].text.strip()
+            logger.info("Using alternate extraction method for toned summary")
+            if hasattr(toned_response.choices[0], 'text'):
+                final_summary = toned_response.choices[0].text.strip()
+            else:
+                # Last resort for dictionary-like responses
+                final_summary = str(toned_response.choices[0]).strip()
             
         # Clean up any remaining "Summary:" prefix if it somehow appears
         final_summary = final_summary.replace("Summary:", "").strip()
@@ -275,6 +315,7 @@ Change ONLY the tone, not the format or structure. Never include the word 'Summa
 
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
+        logger.error(f"Exception type: {type(e).__name__}")
         return None, f"Failed to get summary from AI. Error: {e}"
 
 def extract_text_from_file(file):
@@ -377,7 +418,11 @@ def handle_summarize():
 
     # Check if OpenAI client is available
     if client is None:
-        return jsonify({"error": "OpenAI client not initialized. Please check API key and server logs."}), 500
+        logger.error("API called but OpenAI client is not initialized")
+        return jsonify({
+            "error": "OpenAI client not initialized. Please check API key and server logs.",
+            "help": "This is likely due to an API key issue. Please ensure your OpenAI API key is correctly set in the environment variables."
+        }), 500
 
     data = request.get_json()
     url = data.get('url')
@@ -423,7 +468,11 @@ def handle_file_summarize():
     try:
         # Check if OpenAI client is available
         if client is None:
-            return jsonify({"error": "OpenAI client not initialized. Please check API key and server logs."}), 500
+            logger.error("File API called but OpenAI client is not initialized")
+            return jsonify({
+                "error": "OpenAI client not initialized. Please check API key and server logs.",
+                "help": "This is likely due to an API key issue. Please ensure your OpenAI API key is correctly set in the environment variables."
+            }), 500
             
         # Check if a file was uploaded
         if 'file' not in request.files:
