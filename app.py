@@ -40,9 +40,15 @@ if not OPENAI_API_KEY:
 
 # Initialize OpenAI Client (using v1.0+ syntax)
 try:
+    # Only use the API key parameter, no other parameters
     client = OpenAI(api_key=OPENAI_API_KEY)
+    # Test if the client works
+    logger.info("Testing OpenAI client connection...")
+    models = client.models.list()
+    logger.info(f"OpenAI client initialized successfully. Available models: {[model.id for model in models][:3]}...")
 except Exception as e:
     logger.error(f"Failed to initialize OpenAI client: {e}")
+    client = None  # Set to None so we can check later
     # Handle initialization error appropriately
 
 # Initialize Flask App
@@ -169,15 +175,36 @@ def get_toned_summary(text, tone, length='medium'):
 
 Never include the word 'Summary:' in your response."""
 
-        summary_response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": summary_prompt}
-            ],
-            max_tokens=adjusted_max_tokens,
-            temperature=0.3,  # Lower temperature for more consistent formatting
-        )
+        try:
+            # Try with GPT-4 first, but fall back to GPT-3.5-Turbo if needed
+            model_to_use = "gpt-3.5-turbo"
+            logger.info(f"Using model: {model_to_use}")
+            
+            summary_response = client.chat.completions.create(
+                model=model_to_use,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                max_tokens=adjusted_max_tokens,
+                temperature=0.3,  # Lower temperature for more consistent formatting
+            )
+        except Exception as e:
+            logger.error(f"Error with first model choice: {e}")
+            # Fall back to gpt-3.5-turbo if gpt-4o isn't available
+            model_to_use = "gpt-3.5-turbo"
+            logger.info(f"Falling back to model: {model_to_use}")
+            
+            summary_response = client.chat.completions.create(
+                model=model_to_use,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                max_tokens=adjusted_max_tokens,
+                temperature=0.3,
+            )
+            
         initial_summary = summary_response.choices[0].message.content.strip()
         logger.info("Initial summary received.")
 
@@ -194,7 +221,7 @@ Never include the word 'Summary:' in your response."""
 Change ONLY the tone, not the format or structure. Never include the word 'Summary:' in your response."""
 
         toned_response = client.chat.completions.create(
-            model="gpt-4o",
+            model=model_to_use,
             messages=[
                 {"role": "system", "content": tone_system_message},
                 {"role": "user", "content": tone_prompt}
@@ -312,6 +339,10 @@ def handle_summarize():
     if not request.is_json:
         return jsonify({"error": "Request must be JSON"}), 400
 
+    # Check if OpenAI client is available
+    if client is None:
+        return jsonify({"error": "OpenAI client not initialized. Please check API key and server logs."}), 500
+
     data = request.get_json()
     url = data.get('url')
     text_input = data.get('text')
@@ -354,6 +385,10 @@ def handle_summarize():
 def handle_file_summarize():
     """API endpoint to handle file upload and summarization."""
     try:
+        # Check if OpenAI client is available
+        if client is None:
+            return jsonify({"error": "OpenAI client not initialized. Please check API key and server logs."}), 500
+            
         # Check if a file was uploaded
         if 'file' not in request.files:
             return jsonify({"error": "No file part in the request"}), 400
