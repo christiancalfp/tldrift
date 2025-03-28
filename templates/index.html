@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TLDR Article Summarizer - Get quick summaries of articles">
+    <title>TLDR Summarizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Dark mode initialization script - runs immediately -->
+    <script>
+        // Check for saved theme preference or respect OS preference
+        const savedTheme = localStorage.getItem('theme');
+        console.log('Initial theme from localStorage:', savedTheme);
+        
+        if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark-mode');
+            console.log('Applied dark mode from saved preference');
+        } else if (savedTheme === 'light') {
+            document.documentElement.classList.remove('dark-mode');
+            console.log('Applied light mode from saved preference');
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark-mode');
+            console.log('Applied dark mode from system preference');
+        }
+    </script>
+</head>
+<body>
+    <script>
+        // Direct toggle function
+        function toggleDarkMode() {
+            if (document.documentElement.classList.contains('dark-mode')) {
+                // Currently dark, switch to light
+                document.documentElement.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+                console.log('Switched to light mode');
+                
+                // Show toast
+                var toastMsg = 'Light mode enabled';
+                var toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = toastMsg;
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.classList.add('visible'); }, 10);
+                setTimeout(function() {
+                    toast.classList.remove('visible');
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 3000);
+            } else {
+                // Currently light, switch to dark
+                document.documentElement.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+                console.log('Switched to dark mode');
+                
+                // Show toast
+                var toastMsg = 'Dark mode enabled';
+                var toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = toastMsg;
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.classList.add('visible'); }, 10);
+                setTimeout(function() {
+                    toast.classList.remove('visible');
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 3000);
+            }
+        }
+    </script>
+
+    <main class="container">
+        <header>
+            <div class="logo-container">
+                <svg class="logo" xmlns="http://www.w3.org/2000/svg" width="320" height="80" viewBox="0 0 300 75">
+                    <defs>
+                        <clipPath id="cf32b9dac7">
+                            <path d="M 0 0 L 75.75 0 L 75.75 75 L 0 75 Z M 0 0" clip-rule="nonzero"/>
+                        </clipPath>
+                    </defs>
+                    <g clip-path="url(#cf32b9dac7)" class="logo-chevrons">
+                        <path fill="#662d91" d="M 51.996094 0 L 75.746094 37.492188 L 51.996094 75 L 32.488281 75 L 56.273438 37.492188 L 32.488281 0 Z M 19.511719 0 L 0.00390625 0 L 23.808594 37.492188 L 0.00390625 75 L 19.511719 75 L 43.261719 37.507812 Z M 19.511719 0" fill-opacity="1" fill-rule="nonzero"/>
+                    </g>
+                    <g class="logo-text">
+                        <g transform="translate(68.29615, 57.887675)">
+                            <g>
+                                <path d="M 35.21875 -44.28125 L 35.21875 -39.40625 L 20.578125 -39.40625 L 20.578125 0 L 15.328125 0 L 15.328125 -39.40625 L 0.6875 -39.40625 L 0.6875 -44.28125 Z M 35.21875 -44.28125"/>
+                            </g>
+                        </g>
+                        <g transform="translate(104.200238, 57.887675)">
+                            <g>
+                                <path d="M 10.765625 -44.28125 L 10.765625 -4.875 L 31.015625 -4.875 L 31.015625 0 L 5.5 0 L 5.5 -44.28125 Z M 10.765625 -44.28125"/>
+                            </g>
+                        </g>
+                        <g transform="translate(135.475575, 57.887675)">
+                            <g>
+                                <path d="M 8.6875 -30.015625 C 9.769531 -30.015625 10.664062 -29.628906 11.375 -28.859375 C 12.09375 -28.085938 12.453125 -27.222656 12.453125 -26.265625 C 12.453125 -25.265625 12.0625 -24.390625 11.28125 -23.640625 C 10.507812 -22.890625 9.644531 -22.515625 8.6875 -22.515625 C 7.769531 -22.515625 6.914062 -22.878906 6.125 -23.609375 C 5.332031 -24.335938 4.9375 -25.222656 4.9375 -26.265625 C 4.9375 -27.304688 5.3125 -28.191406 6.0625 -28.921875 C 6.8125 -29.648438 7.6875 -30.015625 8.6875 -30.015625 Z M 13.203125 -6.375 L 8.0625 8.625 L 3.25 8.625 L 7.5 -6.375 Z M 2.4375 -29.265625 Z M 2.4375 -29.265625"/>
+                            </g>
+                        </g>
+                        <g transform="translate(152.864672, 57.887675)">
+                            <g>
+                                <path d="M 21.203125 -44.28125 C 27.660156 -44.28125 32.953125 -42.25 37.078125 -38.1875 C 41.210938 -34.125 43.320312 -28.773438 43.40625 -22.140625 C 43.40625 -15.554688 41.328125 -10.238281 37.171875 -6.1875 C 33.023438 -2.144531 27.742188 -0.0820312 21.328125 0 L 4.6875 0 L 4.6875 -44.28125 Z M 19.953125 -4.875 C 25.492188 -4.875 29.835938 -6.34375 32.984375 -9.28125 C 36.140625 -12.226562 37.738281 -16.515625 37.78125 -22.140625 C 37.78125 -27.554688 36.234375 -31.765625 33.140625 -34.765625 C 30.054688 -37.773438 25.660156 -39.320312 19.953125 -39.40625 L 9.9375 -39.40625 L 9.9375 -4.875 Z M 19.953125 -4.875"/>
+                            </g>
+                        </g>
+                        <g transform="translate(199.214725, 57.887675)">
+                            <g>
+                                <path d="M 17.578125 -44.28125 C 23.367188 -44.28125 27.628906 -43.320312 30.359375 -41.40625 C 33.097656 -39.488281 34.46875 -36.40625 34.46875 -32.15625 C 34.46875 -29.019531 33.535156 -26.441406 31.671875 -24.421875 C 29.816406 -22.398438 27.054688 -21.054688 23.390625 -20.390625 L 35.96875 0 L 29.515625 0 L 17.515625 -19.890625 L 10.765625 -19.890625 L 10.765625 0 L 5.5 0 L 5.5 -44.28125 Z M 17.015625 -24.765625 C 21.140625 -24.765625 24.140625 -25.335938 26.015625 -26.484375 C 27.890625 -27.628906 28.828125 -29.5 28.828125 -32.09375 C 28.828125 -34.59375 27.984375 -36.4375 26.296875 -37.625 C 24.609375 -38.8125 21.992188 -39.40625 18.453125 -39.40625 L 10.765625 -39.40625 L 10.765625 -24.765625 Z M 17.015625 -24.765625"/>
+                            </g>
+                        </g>
+                        <g transform="translate(237.433195, 57.887675)">
+                            <g>
+                                <path d="M 7.5 -44.28125 C 8.457031 -44.28125 9.289062 -43.9375 10 -43.25 C 10.71875 -42.5625 11.078125 -41.71875 11.078125 -40.71875 C 11.078125 -39.675781 10.738281 -38.820312 10.0625 -38.15625 C 9.394531 -37.488281 8.539062 -37.15625 7.5 -37.15625 C 6.457031 -37.15625 5.601562 -37.488281 4.9375 -38.15625 C 4.269531 -38.820312 3.9375 -39.675781 3.9375 -40.71875 C 3.9375 -41.71875 4.289062 -42.5625 5 -43.25 C 5.707031 -43.9375 6.539062 -44.28125 7.5 -44.28125 Z M 9.9375 -29.265625 L 9.9375 0 L 5.0625 0 L 5.0625 -29.265625 Z M 9.9375 -29.265625"/>
+                            </g>
+                        </g>
+                        <g transform="translate(252.445357, 57.887675)">
+                            <g>
+                                <path d="M 17.453125 -48.03125 C 19.078125 -48.03125 20.347656 -47.78125 21.265625 -47.28125 L 20.578125 -42.90625 C 19.410156 -43.320312 18.304688 -43.53125 17.265625 -43.53125 C 15.222656 -43.53125 13.835938 -42.9375 13.109375 -41.75 C 12.378906 -40.5625 12.015625 -38.59375 12.015625 -35.84375 L 12.015625 -29.265625 L 19.140625 -29.265625 L 19.140625 -25.140625 L 12.015625 -25.140625 L 12.015625 0 L 7.125 0 L 7.125 -25.140625 L 0.75 -25.140625 L 0.75 -29.265625 L 7.125 -29.265625 L 7.125 -35.90625 C 7.125 -43.988281 10.566406 -48.03125 17.453125 -48.03125 Z M 17.453125 -48.03125"/>
+                            </g>
+                        </g>
+                        <g transform="translate(272.148825, 57.887675)">
+                            <g>
+                                <path d="M 12.015625 -37.59375 L 12.015625 -29.265625 L 20.640625 -29.265625 L 20.640625 -25.140625 L 12.015625 -25.140625 L 12.015625 -9.5 C 12.015625 -7.164062 12.390625 -5.625 13.140625 -4.875 C 13.890625 -4.125 14.972656 -3.75 16.390625 -3.75 C 18.015625 -3.75 19.453125 -4.082031 20.703125 -4.75 L 20.890625 -0.3125 C 19.222656 0.394531 17.328125 0.75 15.203125 0.75 C 12.203125 0.75 10.101562 0.0078125 8.90625 -1.46875 C 7.71875 -2.945312 7.125 -5.375 7.125 -8.75 L 7.125 -25.140625 L 0.75 -25.140625 L 0.75 -29.265625 L 7.125 -29.265625 L 7.125 -37.59375 Z M 12.015625 -37.59375"/>
+                            </g>
+                        </g>
+                    </g>
+                </svg>
+            </div>
+            <!-- Update the button to use the direct toggle function -->
+            <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode" onclick="toggleDarkMode()">
+                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+        </header>
+
+        <section class="form-section">
+            <form id="summarizeForm">
+                <div class="input-group">
+                    <label for="urlInput">Article URL:</label>
+                    <input 
+                        type="url" 
+                        id="urlInput" 
+                        name="url" 
+                        placeholder="Paste URL (publicly accessible)"
+                        aria-label="Enter article URL">
+                </div>
+
+                <div class="divider">
+                    <p class="or-divider">--- OR ---</p>
+                </div>
+
+                <div class="input-group">
+                    <label for="textInput">Paste Article Text:</label>
+                    <textarea 
+                        id="textInput" 
+                        name="text" 
+                        rows="10" 
+                        placeholder="Paste full article text here (if URL is behind paywall/login)"
+                        aria-label="Enter article text"></textarea>
+                </div>
+                
+                <div class="divider">
+                    <p class="or-divider">--- OR ---</p>
+                </div>
+                
+                <div class="input-group">
+                    <label for="fileInput">Upload Document:</label>
+                    <div class="file-upload-container" id="dropArea">
+                        <input 
+                            type="file" 
+                            id="fileInput" 
+                            name="file" 
+                            accept=".txt,.pdf,.docx,.doc,.rtf"
+                            aria-label="Upload document file"
+                            style="position: absolute; opacity: 0; z-index: -1;">
+                        <div class="file-upload-box">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p>Drag & drop files here or <span class="browse-link">browse</span></p>
+                            <p class="file-types">Supported formats: PDF, TXT, DOC, DOCX, RTF</p>
+                        </div>
+                        <div class="file-preview" style="display: none;">
+                            <div class="file-info">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                                <span class="file-name">No file selected</span>
+                                <button type="button" class="remove-file" aria-label="Remove file">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <fieldset class="input-group tone-selection">
+                    <legend>Select Tone:</legend>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="tone" value="serious" checked>
+                            <span>Serious</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="tone" value="humorous">
+                            <span>Humorous</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="tone" value="child-friendly">
+                            <span>Child-Friendly</span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="input-group length-selection">
+                    <legend>Summary Length:</legend>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="length" value="short" checked>
+                            <span>Short</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="length" value="medium">
+                            <span>Medium</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="length" value="lengthy">
+                            <span>Lengthy</span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <button type="submit" id="summarizeBtn" class="submit-button">Summarize</button>
+            </form>
+        </section>
+
+        <div id="loading" class="loading-indicator" aria-live="polite" style="display: none;">
+            <div class="spinner-container">
+                <div class="spinner"></div>
+            </div>
+            <span>Summarizing...</span>
+        </div>
+
+        <section id="outputArea" class="output-section">
+            <h2>Summary:</h2>
+            <pre id="summaryOutput" aria-live="polite"></pre>
+            
+            <div class="share-options">
+                <h3>Share Summary</h3>
+                <div class="share-buttons">
+                    <button class="share-button copy-button" aria-label="Copy to clipboard">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                    
+                    <button class="share-button email-button" aria-label="Share via email">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        Email
+                    </button>
+                    
+                    <button class="share-button twitter-button" aria-label="Share on Twitter">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+                        </svg>
+                        Twitter
+                    </button>
+                    
+                    <button class="share-button linkedin-button" aria-label="Share on LinkedIn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
+                        LinkedIn
+                    </button>
+                    
+                    <button class="share-button pdf-button" aria-label="Save as PDF">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        PDF
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // File upload handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropArea = document.getElementById('dropArea');
+            const fileInput = document.getElementById('fileInput');
+            const fileUploadBox = dropArea.querySelector('.file-upload-box');
+            const filePreview = dropArea.querySelector('.file-preview');
+            const fileName = dropArea.querySelector('.file-name');
+            const removeFileBtn = dropArea.querySelector('.remove-file');
+            const browseLink = dropArea.querySelector('.browse-link');
+            
+            // Track the uploaded file content
+            let uploadedFileContent = null;
+            let uploadedFileName = '';
+            
+            // Click on the browse link to trigger file input
+            browseLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent the fileUploadBox click handler from being triggered
+                fileInput.click();
+            });
+            
+            // Click on the drop area to trigger file input
+            fileUploadBox.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            // Handle file selection via input
+            fileInput.addEventListener('change', function(e) {
+                console.log('File selected via input:', this.files);
+                if (this.files && this.files.length > 0) {
+                    handleFiles(this.files);
+                }
+            });
+            
+            // Remove selected file
+            removeFileBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                resetFileUpload();
+                showToast('File removed');
+            });
+            
+            // Drag and drop events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                fileUploadBox.classList.add('drag-over');
+            }
+            
+            function unhighlight() {
+                fileUploadBox.classList.remove('drag-over');
+            }
+            
+            dropArea.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+            
+            function handleFiles(files) {
+                if (files.length === 0) return;
+                
+                const file = files[0];
+                uploadedFileName = file.name;
+                
+                // Check file type
+                const allowedTypes = [
+                    'text/plain', 
+                    'application/pdf',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/msword',
+                    'application/rtf'
+                ];
+                
+                const fileType = file.type;
+                const fileExtension = uploadedFileName.split('.').pop().toLowerCase();
+                
+                console.log('File type:', fileType);
+                console.log('File extension:', fileExtension);
+                
+                // Check both MIME type and extension
+                if (!allowedTypes.includes(fileType) && 
+                    !['txt', 'pdf', 'docx', 'doc', 'rtf'].includes(fileExtension)) {
+                    showToast('Unsupported file type. Please upload a PDF, TXT, DOC, DOCX, or RTF file.');
+                    return;
+                }
+                
+                // Update UI
+                fileName.textContent = uploadedFileName;
+                fileUploadBox.style.display = 'none';
+                filePreview.style.display = 'block';
+                
+                // Clear other inputs
+                document.getElementById('urlInput').value = '';
+                document.getElementById('textInput').value = '';
+                
+                // Handle different file types
+                if (fileType === 'text/plain' || fileExtension === 'txt') {
+                    // For text files, read directly
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        uploadedFileContent = e.target.result;
+                        showToast('Text file uploaded successfully');
+                    };
+                    reader.readAsText(file);
+                } else {
+                    // For PDF, DOC, DOCX, RTF - we'll handle these on submission
+                    uploadedFileContent = file;
+                    showToast('File ready for upload');
+                }
+            }
+            
+            function resetFileUpload() {
+                fileInput.value = '';
+                uploadedFileContent = null;
+                uploadedFileName = '';
+                fileName.textContent = 'No file selected';
+                fileUploadBox.style.display = 'block';
+                filePreview.style.display = 'none';
+            }
+            
+            // Modify the form submission to include file data
+            const form = document.getElementById('summarizeForm');
+            
+            form.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                summaryOutput.textContent = '';
+                outputArea.style.display = 'none';
+                loadingIndicator.style.display = 'block';
+                submitBtn.disabled = true;
+                
+                const url = urlInput.value.trim();
+                const text = textInput.value.trim();
+                const tone = document.querySelector('input[name="tone"]:checked').value;
+                const length = document.querySelector('input[name="length"]:checked').value;
+                
+                // Count how many input methods are used
+                let inputCount = 0;
+                if (url) inputCount++;
+                if (text) inputCount++;
+                if (uploadedFileContent) inputCount++;
+                
+                if (inputCount !== 1) {
+                    summaryOutput.textContent = 'Error: Please provide exactly ONE of the following: URL, text, or file.';
+                    outputArea.style.display = 'block';
+                    loadingIndicator.style.display = 'none';
+                    submitBtn.disabled = false;
+                    return;
+                }
+                
+                try {
+                    let response;
+                    
+                    if (uploadedFileContent) {
+                        // If it's a text file already read as text
+                        if (typeof uploadedFileContent === 'string') {
+                            // Just use the text directly
+                            response = await fetch('/summarize', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                    text: uploadedFileContent, 
+                                    tone, 
+                                    length 
+                                })
+                            });
+                        } else {
+                            // For PDF, DOC, etc., we need to use FormData
+                            const formData = new FormData();
+                            formData.append('file', uploadedFileContent);
+                            formData.append('tone', tone);
+                            formData.append('length', length);
+                            
+                            console.log('Uploading file using FormData');
+                            
+                            // Don't set Content-Type header, let the browser set it with the correct boundary
+                            response = await fetch('/summarize_file', {
+                                method: 'POST',
+                                body: formData,
+                                // Do NOT set Content-Type here - browser will set it automatically with boundary
+                            });
+                        }
+                    } else {
+                        // Handle URL or text as before
+                        response = await fetch('/summarize', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url, text, tone, length })
+                        });
+                    }
+                    
+                    // Parse response
+                    try {
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            summaryOutput.textContent = data.summary;
+                            
+                            // Automatically copy to clipboard
+                            try {
+                                await navigator.clipboard.writeText(data.summary);
+                                showToast('Summary generated and copied to clipboard!');
+                            } catch (clipboardErr) {
+                                showToast('Summary generated! Click "Copy" to copy to clipboard.');
+                            }
+                        } else {
+                            summaryOutput.textContent = `Error: ${data.error || 'An unknown error occurred.'}`;
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing response:', parseError);
+                        summaryOutput.textContent = `Error: Failed to parse server response. Status: ${response.status} ${response.statusText}`;
+                    }
+                } catch (error) {
+                    console.error('Fetch Error:', error);
+                    summaryOutput.textContent = `Error: Could not connect to the server or parse the response. ${error.message}`;
+                } finally {
+                    outputArea.style.display = 'block';
+                    loadingIndicator.style.display = 'none';
+                    submitBtn.disabled = false;
+                }
+            });
+        });
+
+        // Define shared variables for both script blocks
+        const urlInput = document.getElementById('urlInput');
+        const textInput = document.getElementById('textInput');
+        const outputArea = document.getElementById('outputArea');
+        const summaryOutput = document.getElementById('summaryOutput');
+        const loadingIndicator = document.getElementById('loading');
+        const submitBtn = document.getElementById('summarizeBtn');
+        
+        // Toast notification function
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.classList.add('visible'); }, 10);
+            setTimeout(function() {
+                toast.classList.remove('visible');
+                setTimeout(function() { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        // Add sharing functionality
+        const copyButton = document.querySelector('.copy-button');
+        const emailButton = document.querySelector('.email-button');
+        const twitterButton = document.querySelector('.twitter-button');
+        const linkedinButton = document.querySelector('.linkedin-button');
+        const pdfButton = document.querySelector('.pdf-button');
+
+        copyButton.addEventListener('click', async () => {
+            const summary = document.getElementById('summaryOutput').textContent;
+            try {
+                await navigator.clipboard.writeText(summary);
+                showToast('Summary copied to clipboard!');
+            } catch (err) {
+                showToast('Failed to copy text. Please try again.');
+            }
+        });
+
+        emailButton.addEventListener('click', () => {
+            const summary = document.getElementById('summaryOutput').textContent;
+            const subject = 'Article Summary';
+            const body = encodeURIComponent(summary);
+            window.open(`mailto:?subject=${subject}&body=${body}`);
+        });
+
+        twitterButton.addEventListener('click', () => {
+            const summary = document.getElementById('summaryOutput').textContent;
+            const text = encodeURIComponent(summary.substring(0, 280)); // Twitter character limit
+            window.open(`https://twitter.com/intent/tweet?text=${text}`);
+        });
+
+        linkedinButton.addEventListener('click', () => {
+            const summary = document.getElementById('summaryOutput').textContent;
+            const text = encodeURIComponent(summary);
+            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${window.location.href}&summary=${text}`);
+        });
+
+        pdfButton.addEventListener('click', async () => {
+            const summary = document.getElementById('summaryOutput').textContent;
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Add title
+                doc.setFontSize(16);
+                doc.text('Article Summary', 20, 20);
+                
+                // Add content
+                doc.setFontSize(12);
+                const splitText = doc.splitTextToSize(summary, 170);
+                doc.text(splitText, 20, 30);
+                
+                // Save the PDF
+                doc.save('article-summary.pdf');
+            } catch (err) {
+                showToast('Failed to generate PDF. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>
