@@ -424,37 +424,6 @@ form:hover {
     margin-bottom: 12px;
 }
 
-.length-selection .radio-group {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    justify-content: space-between;
-}
-
-.length-selection .radio-group label {
-    flex: 1;
-    min-width: 100px;
-    justify-content: center;
-    border: 1px solid var(--border-color);
-    background-color: var(--background-secondary);
-    transition: all 0.2s ease;
-}
-
-.length-selection .radio-group label:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 8px var(--shadow-color);
-}
-
-.length-selection .radio-group input[type="radio"]:checked + span {
-    color: var(--accent-color);
-    font-weight: 500;
-}
-
-.length-selection .radio-group label:has(input[type="radio"]:checked) {
-    border-color: var(--accent-color);
-    background-color: rgba(var(--accent-color-rgb), 0.05);
-}
-
 /* Make the form sections visually distinct */
 fieldset + fieldset {
     border-top: 1px solid var(--border-color);
@@ -750,4 +719,40 @@ html.dark-mode .theme-toggle .moon-icon {
 .remove-file:hover {
     background-color: var(--background-secondary);
     color: var(--error-color);
+}
+
+/* ELI5 specific styles */
+.eli5-section {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--accent-color);
+    border-radius: 10px;
+    background-color: var(--card-bg);
+}
+
+.eli5-section h2 {
+    color: var(--accent-color);
+    font-size: 1.2rem;
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+#eli5Output {
+    font-family: var(--main-font);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    background-color: transparent;
+    padding: 0;
+}
+
+.spinner-small {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 4px;
+    vertical-align: middle;
 }

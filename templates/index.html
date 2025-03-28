@@ -212,24 +212,6 @@
                     </div>
                 </div>
 
-                <fieldset class="input-group tone-selection">
-                    <legend>Select Tone:</legend>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="tone" value="serious" checked>
-                            <span>Serious</span>
-                        </label>
-                        <label>
-                            <input type="radio" name="tone" value="humorous">
-                            <span>Humorous</span>
-                        </label>
-                        <label>
-                            <input type="radio" name="tone" value="child-friendly">
-                            <span>Child-Friendly</span>
-                        </label>
-                    </div>
-                </fieldset>
-
                 <fieldset class="input-group length-selection">
                     <legend>Summary Length:</legend>
                     <div class="radio-group">
@@ -263,6 +245,11 @@
             <h2>Summary:</h2>
             <pre id="summaryOutput" aria-live="polite"></pre>
             
+            <div id="eli5Area" style="display: none;" class="eli5-section">
+                <h2>Explanation for a 5-year-old:</h2>
+                <pre id="eli5Output" aria-live="polite"></pre>
+            </div>
+            
             <div class="share-options">
                 <h3>Share Summary</h3>
                 <div class="share-buttons">
@@ -272,6 +259,16 @@
                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                         </svg>
                         Copy
+                    </button>
+                    
+                    <button class="share-button eli5-button" aria-label="Explain like I'm 5">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                            <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                        </svg>
+                        Explain Like I'm 5
                     </button>
                     
                     <button class="share-button email-button" aria-label="Share via email">
@@ -461,7 +458,6 @@
                 
                 const url = urlInput.value.trim();
                 const text = textInput.value.trim();
-                const tone = document.querySelector('input[name="tone"]:checked').value;
                 const length = document.querySelector('input[name="length"]:checked').value;
                 
                 // Count how many input methods are used
@@ -490,7 +486,6 @@
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ 
                                     text: uploadedFileContent, 
-                                    tone, 
                                     length 
                                 })
                             });
@@ -498,7 +493,6 @@
                             // For PDF, DOC, etc., we need to use FormData
                             const formData = new FormData();
                             formData.append('file', uploadedFileContent);
-                            formData.append('tone', tone);
                             formData.append('length', length);
                             
                             console.log('Uploading file using FormData');
@@ -515,7 +509,7 @@
                         response = await fetch('/summarize', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ url, text, tone, length })
+                            body: JSON.stringify({ url, text, length })
                         });
                     }
                     
@@ -578,6 +572,10 @@
         const twitterButton = document.querySelector('.twitter-button');
         const linkedinButton = document.querySelector('.linkedin-button');
         const pdfButton = document.querySelector('.pdf-button');
+        const eli5Button = document.querySelector('.eli5-button');
+        
+        const eli5Area = document.getElementById('eli5Area');
+        const eli5Output = document.getElementById('eli5Output');
 
         copyButton.addEventListener('click', async () => {
             const summary = document.getElementById('summaryOutput').textContent;
@@ -586,6 +584,59 @@
                 showToast('Summary copied to clipboard!');
             } catch (err) {
                 showToast('Failed to copy text. Please try again.');
+            }
+        });
+
+        eli5Button.addEventListener('click', async () => {
+            const summary = document.getElementById('summaryOutput').textContent;
+            
+            if (!summary.trim()) {
+                showToast('Please generate a summary first.');
+                return;
+            }
+            
+            // Show loading state
+            eli5Button.disabled = true;
+            eli5Button.innerHTML = `
+                <div class="spinner-small"></div>
+                Explaining...
+            `;
+            
+            try {
+                const response = await fetch('/explain_like_five', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ summary })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    eli5Output.textContent = data.explanation;
+                    eli5Area.style.display = 'block';
+                    
+                    // Scroll to the ELI5 section
+                    eli5Area.scrollIntoView({ behavior: 'smooth' });
+                    
+                    showToast('Explanation generated!');
+                } else {
+                    showToast(`Error: ${data.error || 'Failed to generate explanation.'}`);
+                }
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                showToast(`Error: Could not connect to the server. ${error.message}`);
+            } finally {
+                // Reset button state
+                eli5Button.disabled = false;
+                eli5Button.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                        <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                        <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                    </svg>
+                    Explain Like I'm 5
+                `;
             }
         });
 

@@ -207,44 +207,35 @@ def fetch_article_text(url):
         logger.error(f"Error parsing content from {url}: {e}")
         return None, f"Could not parse content from the URL. Error: {e}"
 
-def get_toned_summary(text, tone, length='medium'):
-    """Generates summary and applies tone using OpenAI API."""
+def get_summary(text, length='medium'):
+    """Generates summary using OpenAI API based on the specified length."""
     if not text or not text.strip():
          return None, "Input text is empty."
     if not client: # Check if client initialized correctly
         return None, "OpenAI client not initialized."
 
-    tone_instructions = {
-        "serious": "Summarize the following text, focusing on the core arguments, key findings, and essential information. Maintain a neutral tone and avoid any personal opinions or interpretations:",
-        "humorous": "Summarize the following text in a way that's both informative and hilariously relatable for a group chat. Inject some witty observations and humorous commentary, but still accurately convey the main points:",
-        "child-friendly": "Summarize the following text in simple terms that a 5-year-old can easily understand. Use short sentences, everyday language, and relatable examples. Focus on the main idea and avoid complex vocabulary:"
-    }
-
     length_instructions = {
         "short": {
             "prompt": "Create 1-3 extremely brief bullet points capturing only the most essential information. Use phrases rather than full sentences. Format as:\n• Key point 1\n• Key point 2\n• Key point 3\nKeep each point under 10 words when possible:",
-            "max_tokens": 250  # Increased from 150
+            "max_tokens": 250
         },
         "medium": {
             "prompt": "Summarize in EXACTLY one continuous paragraph (4-6 sentences). Do not use bullet points:",
-            "max_tokens": 350  # Increased from 250
+            "max_tokens": 350
         },
         "lengthy": {
             "prompt": "Provide a detailed summary in 2-3 continuous paragraphs. Do not use bullet points:",
-            "max_tokens": 650  # Increased from 450
+            "max_tokens": 650
         }
     }
-
-    if tone not in tone_instructions:
-        return None, "Invalid tone selected."
 
     if length not in length_instructions:
         length = 'medium'  # Default to medium if invalid length
         logger.warning(f"Invalid length '{length}' provided, defaulting to 'medium'")
 
     try:
-        # Step 1: Summarize the text with specified length
-        logger.info(f"Requesting summary with length: {length}, tone: {tone}")
+        # Summarize the text with specified length
+        logger.info(f"Requesting summary with length: {length}")
         length_config = length_instructions[length]
         summary_prompt = f"{length_config['prompt']}\n\n{text}"[:15000]  # Limit input size
 
@@ -292,72 +283,87 @@ Never include the word 'Summary:' in your response."""
             # Extract content based on response format
             logger.info(f"Summary response type: {type(summary_response)}")
             if hasattr(summary_response.choices[0], 'message'):
-                initial_summary = summary_response.choices[0].message.content.strip()
+                summary = summary_response.choices[0].message.content.strip()
             else:
                 # Fallback in case of different response structure
                 logger.info("Using alternate extraction method for summary")
                 if hasattr(summary_response.choices[0], 'text'):
-                    initial_summary = summary_response.choices[0].text.strip()
+                    summary = summary_response.choices[0].text.strip()
                 else:
                     # Last resort for dictionary-like responses
-                    initial_summary = str(summary_response.choices[0]).strip()
+                    summary = str(summary_response.choices[0]).strip()
                     
-            logger.info("Initial summary received.")
+            logger.info("Summary received.")
+            
+            # Clean up any remaining "Summary:" prefix if it somehow appears
+            summary = summary.replace("Summary:", "").strip()
+
+            return summary, None
+
         except Exception as e:
             logger.error(f"Error with summary generation: {e}")
             logger.error(f"Exception type: {type(e).__name__}")
             return None, f"Failed to generate summary: {str(e)}"
             
-        # Step 2: Apply the selected tone while maintaining length and format
-        logger.info(f"Requesting toned summary (Tone: {tone})")
-        tone_prompt = f"Current summary format: {length.upper()}\n\nRewrite with {tone} tone while maintaining the proper format for {length.upper()} summaries:\n\n{initial_summary}"
-
-        tone_system_message = """You are a helpful assistant that rewrites text in a specific tone. Follow these formatting rules exactly:
-
-1. For SHORT summaries: ALWAYS maintain 1-3 bullet points with the • character, each under 10 words. Never use paragraphs.
-2. For MEDIUM summaries: ALWAYS keep exactly ONE continuous paragraph (4-6 sentences). NEVER use bullet points.
-3. For LENGTHY summaries: ALWAYS maintain exactly 2-3 continuous paragraphs. NEVER use bullet points.
-
-Change ONLY the tone, not the format or structure. Never include the word 'Summary:' in your response."""
-
-        # Create messages array for tone API call
-        tone_messages = [
-            {"role": "system", "content": tone_system_message},
-            {"role": "user", "content": tone_prompt}
-        ]
-        
-        # Call the API again for tone application
-        logger.info("Calling OpenAI API for tone application...")
-        toned_response = client.chat.completions.create(
-            model=model_to_use,
-            messages=tone_messages,
-            max_tokens=adjusted_max_tokens,
-            temperature=0.5,  # Moderate temperature for tone variation while maintaining format
-        )
-        
-        # Extract content based on response format
-        logger.info(f"Tone response type: {type(toned_response)}")
-        if hasattr(toned_response.choices[0], 'message'):
-            final_summary = toned_response.choices[0].message.content.strip()
-        else:
-            # Fallback in case of different response structure
-            logger.info("Using alternate extraction method for toned summary")
-            if hasattr(toned_response.choices[0], 'text'):
-                final_summary = toned_response.choices[0].text.strip()
-            else:
-                # Last resort for dictionary-like responses
-                final_summary = str(toned_response.choices[0]).strip()
-            
-        # Clean up any remaining "Summary:" prefix if it somehow appears
-        final_summary = final_summary.replace("Summary:", "").strip()
-        logger.info("Toned summary received.")
-
-        return final_summary, None
-
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
         logger.error(f"Exception type: {type(e).__name__}")
         return None, f"Failed to get summary from AI. Error: {e}"
+
+def explain_like_five(summary):
+    """Takes a summary and explains it in simple terms a 5-year-old would understand."""
+    if not summary or not summary.strip():
+        return None, "No summary provided to explain."
+    if not client:  # Check if client initialized correctly
+        return None, "OpenAI client not initialized."
+        
+    try:
+        # Create system message for ELI5
+        system_message = """You are a helpful assistant that explains complex topics in very simple language that a 5-year-old child would understand. 
+        Use short, simple sentences, everyday words, and avoid jargon or technical terms. 
+        Include relatable examples or analogies where helpful. Be warm and friendly but factually accurate."""
+        
+        eli5_prompt = f"Explain this summary in a way a 5-year-old would understand:\n\n{summary}"
+        
+        # Create messages array for API call
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": eli5_prompt}
+        ]
+        
+        # Use gpt-3.5-turbo for compatibility
+        model_to_use = "gpt-3.5-turbo"
+        logger.info(f"Using model: {model_to_use} for ELI5 explanation")
+        
+        # Call the API using the appropriate client method
+        logger.info("Calling OpenAI API for ELI5 explanation...")
+        eli5_response = client.chat.completions.create(
+            model=model_to_use,
+            messages=messages,
+            max_tokens=600,  # Allow enough space for the explanation
+            temperature=0.6,  # Slightly higher temperature for more creative explanations
+        )
+        
+        # Extract content based on response format
+        logger.info(f"ELI5 response type: {type(eli5_response)}")
+        if hasattr(eli5_response.choices[0], 'message'):
+            explanation = eli5_response.choices[0].message.content.strip()
+        else:
+            # Fallback in case of different response structure
+            logger.info("Using alternate extraction method for ELI5")
+            if hasattr(eli5_response.choices[0], 'text'):
+                explanation = eli5_response.choices[0].text.strip()
+            else:
+                # Last resort for dictionary-like responses
+                explanation = str(eli5_response.choices[0]).strip()
+                
+        logger.info("ELI5 explanation received.")
+        return explanation, None
+        
+    except Exception as e:
+        logger.error(f"OpenAI API error in ELI5: {e}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        return None, f"Failed to get ELI5 explanation. Error: {e}"
 
 def extract_text_from_file(file):
     """Extract text from various file types (PDF, DOCX, TXT)."""
@@ -468,12 +474,11 @@ def handle_summarize():
     data = request.get_json()
     url = data.get('url')
     text_input = data.get('text')
-    tone = data.get('tone', 'serious') # Default to serious tone
     length = data.get('length', 'medium')  # Default to medium length
 
     logger.info(f"Summarize request - URL: {'present' if url else 'none'}, "
                f"Text: {'present' if text_input else 'none'}, "
-               f"Tone: {tone}, Length: {length}")
+               f"Length: {length}")
 
     article_text = None
     error = None
@@ -496,12 +501,40 @@ def handle_summarize():
     if not article_text: # Should be caught by fetcher, but double-check
          return jsonify({"error": "Failed to get article content."}), 500
 
-    summary, error = get_toned_summary(article_text, tone, length)
+    summary, error = get_summary(article_text, length)
 
     if error:
         return jsonify({"error": error}), 500
 
     return jsonify({"summary": summary})
+
+@app.route('/explain_like_five', methods=['POST'])
+def handle_eli5():
+    """API endpoint to handle ELI5 (Explain Like I'm 5) requests."""
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+
+    # Check if OpenAI client is available
+    if client is None:
+        logger.error("ELI5 API called but OpenAI client is not initialized")
+        return jsonify({
+            "error": "OpenAI client not initialized. Please check API key and server logs."
+        }), 500
+
+    data = request.get_json()
+    summary = data.get('summary')
+    
+    if not summary:
+        return jsonify({"error": "No summary provided to explain."}), 400
+        
+    logger.info("Processing ELI5 request for summary")
+    
+    explanation, error = explain_like_five(summary)
+    
+    if error:
+        return jsonify({"error": error}), 500
+        
+    return jsonify({"explanation": explanation})
 
 @app.route('/summarize_file', methods=['POST'])
 def handle_file_summarize():
@@ -532,11 +565,10 @@ def handle_file_summarize():
         if not allowed_file(file.filename):
             return jsonify({"error": f"File type not allowed. Please upload one of these formats: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
 
-        # Get tone and length preferences from form data
-        tone = request.form.get('tone', 'serious')  # Default to serious tone
+        # Get length preference from form data
         length = request.form.get('length', 'medium')  # Default to medium length
         
-        logger.info(f"Processing file with tone: {tone}, length: {length}")
+        logger.info(f"Processing file with length: {length}")
         
         # Extract text from the file
         article_text, error = extract_text_from_file(file)
@@ -549,7 +581,7 @@ def handle_file_summarize():
             return jsonify({"error": "Failed to extract text from the file."}), 500
         
         # Generate summary
-        summary, error = get_toned_summary(article_text, tone, length)
+        summary, error = get_summary(article_text, length)
         
         if error:
             logger.error(f"Error generating summary: {error}")
