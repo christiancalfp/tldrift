@@ -8,6 +8,7 @@ import logging
 import tempfile
 import mimetypes
 from werkzeug.utils import secure_filename
+import sys
 
 # For PDF processing
 try:
@@ -48,6 +49,13 @@ except Exception as e:
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()  # Use system temp directory
+
+# Add additional logging setup for production
+if os.environ.get('FLASK_ENV') != 'development':
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.ERROR)
+    app.logger.addHandler(handler)
+    app.logger.setLevel(logging.ERROR)
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'doc', 'rtf'}
@@ -287,6 +295,16 @@ def extract_text_from_file(file):
 def index():
     """Renders the main HTML page."""
     return render_template('index.html')
+
+# Add error handling for 500 errors
+@app.errorhandler(500)
+def server_error(e):
+    # Log the error and stacktrace
+    app.logger.error('Server Error: %s', e)
+    return jsonify({
+        "error": "An internal server error occurred. Please check the logs for more details.",
+        "details": str(e)
+    }), 500
 
 @app.route('/summarize', methods=['POST'])
 def handle_summarize():
