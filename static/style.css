@@ -727,7 +727,7 @@ html.dark-mode .theme-toggle .moon-icon {
     padding: 1.5rem;
     border: 1px solid var(--accent-color);
     border-radius: 10px;
-    background-color: var(--card-bg);
+    background-color: var(--background-secondary);
 }
 
 .eli5-section h2 {
@@ -738,7 +738,7 @@ html.dark-mode .theme-toggle .moon-icon {
 }
 
 #eli5Output {
-    font-family: var(--main-font);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
     line-height: 1.5;
     white-space: pre-wrap;
     background-color: transparent;

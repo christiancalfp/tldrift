@@ -158,7 +158,7 @@ if os.environ.get('FLASK_ENV') != 'development':
     app.logger.setLevel(logging.ERROR)
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'doc', 'rtf'}
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'doc', 'rtf', 'md'}
 
 def allowed_file(filename):
     """Check if a file has an allowed extension."""
@@ -207,40 +207,21 @@ def fetch_article_text(url):
         logger.error(f"Error parsing content from {url}: {e}")
         return None, f"Could not parse content from the URL. Error: {e}"
 
-def get_summary(text, length='medium'):
-    """Generates summary using OpenAI API based on the specified length."""
+def get_summary(text):
+    """Generates summary using OpenAI API in a combined format with bullet points and paragraph."""
     if not text or not text.strip():
          return None, "Input text is empty."
     if not client: # Check if client initialized correctly
         return None, "OpenAI client not initialized."
 
-    length_instructions = {
-        "short": {
-            "prompt": "Create 1-3 extremely brief bullet points capturing only the most essential information. Use phrases rather than full sentences. Format as:\n• Key point 1\n• Key point 2\n• Key point 3\nKeep each point under 10 words when possible:",
-            "max_tokens": 250
-        },
-        "medium": {
-            "prompt": "Summarize in EXACTLY one continuous paragraph (4-6 sentences). Do not use bullet points:",
-            "max_tokens": 350
-        },
-        "lengthy": {
-            "prompt": "Provide a detailed summary in 2-3 continuous paragraphs. Do not use bullet points:",
-            "max_tokens": 650
-        }
-    }
-
-    if length not in length_instructions:
-        length = 'medium'  # Default to medium if invalid length
-        logger.warning(f"Invalid length '{length}' provided, defaulting to 'medium'")
-
     try:
-        # Summarize the text with specified length
-        logger.info(f"Requesting summary with length: {length}")
-        length_config = length_instructions[length]
-        summary_prompt = f"{length_config['prompt']}\n\n{text}"[:15000]  # Limit input size
+        # Summarize the text in the combined format (3 bullet points + 1 paragraph)
+        logger.info("Requesting combined format summary (bullet points + paragraph)")
+        
+        # Limit input size to 15000 characters to avoid token limits
+        summary_prompt = f"Summarize the following text with EXACTLY 3 bullet points followed by 1 detailed paragraph:\n\n{text}"[:15000]
 
-        # Increase the max_tokens based on the length of the input text
-        # For very long inputs, we need more tokens for the summary
+        # Adjust token limit based on input text length
         input_length = len(text)
         token_multiplier = 1.0
         if input_length > 10000:
@@ -248,17 +229,19 @@ def get_summary(text, length='medium'):
         elif input_length > 5000:
             token_multiplier = 1.2
         
-        adjusted_max_tokens = int(length_config['max_tokens'] * token_multiplier)
-        logger.info(f"Using adjusted token limit: {adjusted_max_tokens} (base: {length_config['max_tokens']}, multiplier: {token_multiplier})")
+        max_tokens = 650  # Base token limit
+        adjusted_max_tokens = int(max_tokens * token_multiplier)
+        logger.info(f"Using adjusted token limit: {adjusted_max_tokens} (base: {max_tokens}, multiplier: {token_multiplier})")
 
-        # Create a detailed system message that explicitly defines format requirements for each length
-        system_message = """You are a helpful assistant that creates precise summaries. Follow these formatting rules exactly:
+        # Create a detailed system message that explicitly defines the required format
+        system_message = """You are a helpful assistant that creates precise summaries in a specific format.
 
-1. For SHORT summaries: ALWAYS use 1-3 bullet points with the • character, each under 10 words. Never use paragraphs.
-2. For MEDIUM summaries: ALWAYS use exactly ONE continuous paragraph (4-6 sentences). NEVER use bullet points.
-3. For LENGTHY summaries: ALWAYS use exactly 2-3 continuous paragraphs. NEVER use bullet points.
+Your summary MUST consist of exactly two parts:
+1. FIRST: Exactly 3 bullet points using the • character. Each bullet point should be 5-10 words and capture a key insight.
+2. SECOND: One detailed paragraph (5-7 sentences) that provides a comprehensive summary of the content.
 
-Never include the word 'Summary:' in your response."""
+Leave a blank line between the bullet points and paragraph.
+Never include the word 'Summary:' or any headers in your response."""
 
         try:
             # Use gpt-3.5-turbo for compatibility
@@ -474,11 +457,9 @@ def handle_summarize():
     data = request.get_json()
     url = data.get('url')
     text_input = data.get('text')
-    length = data.get('length', 'medium')  # Default to medium length
 
     logger.info(f"Summarize request - URL: {'present' if url else 'none'}, "
-               f"Text: {'present' if text_input else 'none'}, "
-               f"Length: {length}")
+               f"Text: {'present' if text_input else 'none'}")
 
     article_text = None
     error = None
@@ -501,7 +482,7 @@ def handle_summarize():
     if not article_text: # Should be caught by fetcher, but double-check
          return jsonify({"error": "Failed to get article content."}), 500
 
-    summary, error = get_summary(article_text, length)
+    summary, error = get_summary(article_text)
 
     if error:
         return jsonify({"error": error}), 500
@@ -564,11 +545,8 @@ def handle_file_summarize():
         # Check if the file type is allowed
         if not allowed_file(file.filename):
             return jsonify({"error": f"File type not allowed. Please upload one of these formats: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
-
-        # Get length preference from form data
-        length = request.form.get('length', 'medium')  # Default to medium length
         
-        logger.info(f"Processing file with length: {length}")
+        logger.info("Processing file for summary")
         
         # Extract text from the file
         article_text, error = extract_text_from_file(file)
@@ -581,7 +559,7 @@ def handle_file_summarize():
             return jsonify({"error": "Failed to extract text from the file."}), 500
         
         # Generate summary
-        summary, error = get_summary(article_text, length)
+        summary, error = get_summary(article_text)
         
         if error:
             logger.error(f"Error generating summary: {error}")

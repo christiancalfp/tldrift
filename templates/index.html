@@ -212,24 +212,6 @@
                     </div>
                 </div>
 
-                <fieldset class="input-group length-selection">
-                    <legend>Summary Length:</legend>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="length" value="short" checked>
-                            <span>Short</span>
-                        </label>
-                        <label>
-                            <input type="radio" name="length" value="medium">
-                            <span>Medium</span>
-                        </label>
-                        <label>
-                            <input type="radio" name="length" value="lengthy">
-                            <span>Lengthy</span>
-                        </label>
-                    </div>
-                </fieldset>
-
                 <button type="submit" id="summarizeBtn" class="submit-button">Summarize</button>
             </form>
         </section>
@@ -241,7 +223,7 @@
             <span>Summarizing...</span>
         </div>
 
-        <section id="outputArea" class="output-section">
+        <section id="outputArea" class="output-section" style="display: none;">
             <h2>Summary:</h2>
             <pre id="summaryOutput" aria-live="polite"></pre>
             
@@ -456,9 +438,12 @@
                 loadingIndicator.style.display = 'block';
                 submitBtn.disabled = true;
                 
+                // Hide ELI5 area when submitting a new summary
+                eli5Area.style.display = 'none';
+                eli5Output.textContent = '';
+                
                 const url = urlInput.value.trim();
                 const text = textInput.value.trim();
-                const length = document.querySelector('input[name="length"]:checked').value;
                 
                 // Count how many input methods are used
                 let inputCount = 0;
@@ -485,15 +470,13 @@
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ 
-                                    text: uploadedFileContent, 
-                                    length 
+                                    text: uploadedFileContent
                                 })
                             });
                         } else {
                             // For PDF, DOC, etc., we need to use FormData
                             const formData = new FormData();
                             formData.append('file', uploadedFileContent);
-                            formData.append('length', length);
                             
                             console.log('Uploading file using FormData');
                             
@@ -509,7 +492,7 @@
                         response = await fetch('/summarize', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ url, text, length })
+                            body: JSON.stringify({ url, text })
                         });
                     }
                     
