@@ -219,13 +219,6 @@
             </form>
         </section>
 
-        <div id="loading" class="loading-indicator" aria-live="polite" style="display: none;">
-            <div class="spinner-container">
-                <div class="spinner"></div>
-            </div>
-            <span>Summarizing...</span>
-        </div>
-
         <section id="outputArea" class="output-section" style="display: none;">
             <h2>Summary:</h2>
             <pre id="summaryOutput" aria-live="polite"></pre>
@@ -438,7 +431,6 @@
                 event.preventDefault();
                 summaryOutput.textContent = '';
                 outputArea.style.display = 'none';
-                loadingIndicator.style.display = 'block';
                 
                 // Show loading state in the button
                 const buttonText = submitBtn.querySelector('.button-text');
@@ -463,7 +455,10 @@
                 if (inputCount !== 1) {
                     summaryOutput.textContent = 'Error: Please provide exactly ONE of the following: URL, text, or file.';
                     outputArea.style.display = 'block';
-                    loadingIndicator.style.display = 'none';
+                    
+                    // Reset button state
+                    buttonText.textContent = 'Summarize';
+                    buttonSpinner.classList.add('hidden');
                     submitBtn.disabled = false;
                     return;
                 }
@@ -539,11 +534,8 @@
                     summaryOutput.textContent = `Error: Could not connect to the server or parse the response. ${error.message}`;
                 } finally {
                     outputArea.style.display = 'block';
-                    loadingIndicator.style.display = 'none';
                     
                     // Reset button state
-                    const buttonText = submitBtn.querySelector('.button-text');
-                    const buttonSpinner = submitBtn.querySelector('.spinner');
                     buttonText.textContent = 'Summarize';
                     buttonSpinner.classList.add('hidden');
                     submitBtn.disabled = false;
@@ -640,7 +632,6 @@
         const textInput = document.getElementById('textInput');
         const outputArea = document.getElementById('outputArea');
         const summaryOutput = document.getElementById('summaryOutput');
-        const loadingIndicator = document.getElementById('loading');
         const submitBtn = document.getElementById('summarizeBtn');
         
         // Toast notification function
