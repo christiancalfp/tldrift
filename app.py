@@ -219,7 +219,7 @@ def get_summary(text):
         logger.info("Requesting combined format summary (bullet points + paragraph)")
         
         # Limit input size to 15000 characters to avoid token limits
-        summary_prompt = f"Summarize the following text with EXACTLY 3 bullet points followed by 1 detailed paragraph:\n\n{text}"[:15000]
+        summary_prompt = f"Summarize the following text in the required format with the specified section headers:\n\n{text}"[:15000]
 
         # Adjust token limit based on input text length
         input_length = len(text)
@@ -236,12 +236,23 @@ def get_summary(text):
         # Create a detailed system message that explicitly defines the required format
         system_message = """You are a helpful assistant that creates precise summaries in a specific format.
 
-Your summary MUST consist of exactly 3 parts:
-1. FIRST: TLDR bullet points using the • character. Each bullet point should be 5-10 words and capture a key insight.
-2. SECOND: One detailed paragraph (5-7 sentences) that provides a comprehensive summary of the content.
-3. THIRD: A list of 3-5 interesting facts or anecdotes from the content.
+Your summary MUST include these exact section headers and follow this structure:
 
-Leave a blank line between each part.
+## TL;DR
+• First key point (5-10 words)
+• Second key point (5-10 words)
+• Third key point (5-10 words)
+
+## More Details
+One detailed paragraph (5-7 sentences) that provides a comprehensive summary of the content.
+
+## Interesting Highlights/Anecdotes
+• First interesting fact or anecdote from the content
+• Second interesting fact or anecdote from the content
+• Third interesting fact or anecdote from the content
+(Include 1-2 additional interesting facts if relevant)
+
+Keep the exact section headers as shown above.
 """
 
         try:
@@ -278,6 +289,7 @@ Leave a blank line between each part.
                     summary = str(summary_response.choices[0]).strip()
                     
             logger.info("Summary received.")
+            return summary, None  # Add this return statement to return the summary and no error
 
         except Exception as e:
             logger.error(f"Error with summary generation: {e}")

@@ -501,9 +501,14 @@
                         const data = await response.json();
                         
                         if (response.ok) {
-                            summaryOutput.textContent = data.summary;
+                            // Store the original summary for copying
+                            originalSummary = data.summary;
                             
-                            // Automatically copy to clipboard
+                            // Convert markdown headers and bullet points to HTML
+                            const formattedSummary = formatMarkdown(data.summary);
+                            summaryOutput.innerHTML = formattedSummary;
+                            
+                            // Automatically copy to clipboard (plain text version)
                             try {
                                 await navigator.clipboard.writeText(data.summary);
                                 showToast('Summary generated and copied to clipboard!');
@@ -527,6 +532,90 @@
                 }
             });
         });
+
+        // Function to format markdown text
+        function formatMarkdown(text) {
+            if (!text) return '';
+            
+            // First step: Handle section headers
+            const formatted = text
+                .replace(/## (.*?)$/gm, '<h2>$1</h2>')
+                .replace(/# (.*?)$/gm, '<h1>$1</h1>');
+            
+            // Split the content by lines to process each line
+            const lines = formatted.split('\n');
+            let result = '';
+            let inSection = false;
+            let inList = false;
+            let listContent = '';
+            
+            // Process line by line
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Handle section headers
+                if (line.includes('</h2>') || line.includes('</h1>')) {
+                    // Close any open list before adding a new section
+                    if (inList) {
+                        result += '<ul>' + listContent + '</ul>';
+                        listContent = '';
+                        inList = false;
+                    }
+                    
+                    result += line + '\n';
+                    inSection = true;
+                    continue;
+                }
+                
+                // Handle bullet points
+                if (line.startsWith('• ')) {
+                    if (!inList) {
+                        inList = true;
+                    }
+                    
+                    // Add list item to the current list content
+                    const itemContent = line.substring(2); // Remove the bullet symbol
+                    listContent += `<li>${itemContent}</li>\n`;
+                    continue;
+                }
+                
+                // For non-bullet and non-header lines
+                if (line) {
+                    // Close any open list before adding regular content
+                    if (inList) {
+                        result += '<ul>' + listContent + '</ul>\n';
+                        listContent = '';
+                        inList = false;
+                    }
+                    
+                    result += line + '<br>\n';
+                } else if (i > 0 && i < lines.length - 1) {
+                    // Empty line that's not at the start or end
+                    // Close any open list before adding a line break
+                    if (inList) {
+                        result += '<ul>' + listContent + '</ul>\n';
+                        listContent = '';
+                        inList = false;
+                    }
+                    
+                    result += '<br>\n';
+                }
+            }
+            
+            // Close any remaining open list at the end of processing
+            if (inList) {
+                result += '<ul>' + listContent + '</ul>\n';
+            }
+            
+            // Clean up any redundant line breaks
+            result = result
+                .replace(/<br>\s*<h2>/g, '<h2>')
+                .replace(/<h2>(.*?)<\/h2><br>/g, '<h2>$1</h2>')
+                .replace(/<br>\s*<ul>/g, '<ul>')
+                .replace(/<\/ul><br>/g, '</ul>');
+                
+            return result;
+        }
 
         // Define shared variables for both script blocks
         const urlInput = document.getElementById('urlInput');
@@ -559,11 +648,13 @@
         
         const eli5Area = document.getElementById('eli5Area');
         const eli5Output = document.getElementById('eli5Output');
+        
+        // Store the original plain text summary for copying
+        let originalSummary = '';
 
         copyButton.addEventListener('click', async () => {
-            const summary = document.getElementById('summaryOutput').textContent;
             try {
-                await navigator.clipboard.writeText(summary);
+                await navigator.clipboard.writeText(originalSummary);
                 showToast('Summary copied to clipboard!');
             } catch (err) {
                 showToast('Failed to copy text. Please try again.');
@@ -571,9 +662,7 @@
         });
 
         eli5Button.addEventListener('click', async () => {
-            const summary = document.getElementById('summaryOutput').textContent;
-            
-            if (!summary.trim()) {
+            if (!originalSummary.trim()) {
                 showToast('Please generate a summary first.');
                 return;
             }
@@ -589,7 +678,7 @@
                 const response = await fetch('/explain_like_five', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ summary })
+                    body: JSON.stringify({ summary: originalSummary })
                 });
                 
                 const data = await response.json();
@@ -624,42 +713,116 @@
         });
 
         emailButton.addEventListener('click', () => {
-            const summary = document.getElementById('summaryOutput').textContent;
             const subject = 'Article Summary';
-            const body = encodeURIComponent(summary);
+            const body = encodeURIComponent(originalSummary);
             window.open(`mailto:?subject=${subject}&body=${body}`);
         });
 
         twitterButton.addEventListener('click', () => {
-            const summary = document.getElementById('summaryOutput').textContent;
-            const text = encodeURIComponent(summary.substring(0, 280)); // Twitter character limit
+            const text = encodeURIComponent(originalSummary.substring(0, 280)); // Twitter character limit
             window.open(`https://twitter.com/intent/tweet?text=${text}`);
         });
 
         linkedinButton.addEventListener('click', () => {
-            const summary = document.getElementById('summaryOutput').textContent;
-            const text = encodeURIComponent(summary);
+            const text = encodeURIComponent(originalSummary);
             window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${window.location.href}&summary=${text}`);
         });
 
         pdfButton.addEventListener('click', async () => {
-            const summary = document.getElementById('summaryOutput').textContent;
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 
+                // Parse the summary to create a formatted PDF
+                const lines = originalSummary.split('\n');
+                let yPos = 20;
+                let currentSection = '';
+                
                 // Add title
                 doc.setFontSize(16);
-                doc.text('Article Summary', 20, 20);
+                doc.setFont(undefined, 'bold');
+                doc.text('Article Summary', 20, yPos);
+                yPos += 12; // Reduced from 15
                 
-                // Add content
-                doc.setFontSize(12);
-                const splitText = doc.splitTextToSize(summary, 170);
-                doc.text(splitText, 20, 30);
+                // Process each line
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    
+                    // Skip empty lines but add less spacing
+                    if (!line.trim()) {
+                        // Only add space if not between a header and bullet points
+                        const nextLine = i < lines.length - 1 ? lines[i + 1].trim() : '';
+                        const prevLine = i > 0 ? lines[i - 1].trim() : '';
+                        
+                        if (!prevLine.startsWith('## ') && !nextLine.startsWith('• ')) {
+                            yPos += 3; // Reduced from 5
+                        }
+                        continue;
+                    }
+                    
+                    // Handle section headers (## headers)
+                    if (line.startsWith('## ')) {
+                        currentSection = line.substring(3).trim();
+                        doc.setFontSize(14);
+                        doc.setFont(undefined, 'bold');
+                        
+                        // Add less spacing before new sections
+                        if (i > 0) {
+                            yPos += 8; // Reduced from 5 + new line spacing
+                        }
+                        
+                        // Check if we need a new page
+                        if (yPos > 270) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        
+                        doc.text(currentSection, 20, yPos);
+                        yPos += 6; // Reduced from 10
+                        
+                        // Reset to normal text
+                        doc.setFontSize(12);
+                        doc.setFont(undefined, 'normal');
+                        continue;
+                    }
+                    
+                    // Handle bullet points
+                    if (line.startsWith('• ')) {
+                        const bulletText = line.substring(2); // Remove the bullet symbol
+                        const textLines = doc.splitTextToSize(bulletText, 150); // Narrower width for indentation
+                        
+                        // Check if we need a new page
+                        if (yPos + (textLines.length * 7) > 270) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        
+                        // Add bullet and indented text
+                        doc.text('•', 20, yPos);
+                        doc.text(textLines, 25, yPos);
+                        yPos += textLines.length * 6; // Reduced from 7
+                        continue;
+                    }
+                    
+                    // Regular paragraph text
+                    doc.setFontSize(12);
+                    doc.setFont(undefined, 'normal');
+                    const textLines = doc.splitTextToSize(line, 170);
+                    
+                    // Check if we need a new page
+                    if (yPos + (textLines.length * 7) > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.text(textLines, 20, yPos);
+                    yPos += textLines.length * 6; // Reduced from 7
+                }
                 
                 // Save the PDF
                 doc.save('article-summary.pdf');
             } catch (err) {
+                console.error('PDF error:', err);
                 showToast('Failed to generate PDF. Please try again.');
             }
         });
