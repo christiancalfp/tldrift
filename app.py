@@ -207,7 +207,7 @@ def fetch_article_text(url):
         logger.error(f"Error parsing content from {url}: {e}")
         return None, f"Could not parse content from the URL. Error: {e}"
 
-def get_summary(text):
+def get_summary(text, model="gpt-4o-mini"):
     """Generates summary using OpenAI API in a combined format with bullet points and paragraph."""
     if not text or not text.strip():
          return None, "Input text is empty."
@@ -256,8 +256,8 @@ Keep the exact section headers as shown above.
 """
 
         try:
-            # Use gpt-3.5-turbo for compatibility
-            model_to_use = "gpt-3.5-turbo"
+            # Use the specified model (default: gpt-4o-mini)
+            model_to_use = model
             logger.info(f"Using model: {model_to_use}")
             
             # Create messages array for API call
@@ -301,7 +301,7 @@ Keep the exact section headers as shown above.
         logger.error(f"Exception type: {type(e).__name__}")
         return None, f"Failed to get summary from AI. Error: {e}"
 
-def explain_like_five(summary):
+def explain_like_five(summary, model="gpt-4o-mini"):
     """Takes a summary and explains it in simple terms a 5-year-old would understand."""
     if not summary or not summary.strip():
         return None, "No summary provided to explain."
@@ -322,8 +322,8 @@ def explain_like_five(summary):
             {"role": "user", "content": eli5_prompt}
         ]
         
-        # Use gpt-3.5-turbo for compatibility
-        model_to_use = "gpt-3.5-turbo"
+        # Use the specified model (default: gpt-4o-mini)
+        model_to_use = model
         logger.info(f"Using model: {model_to_use} for ELI5 explanation")
         
         # Call the API using the appropriate client method
@@ -465,9 +465,10 @@ def handle_summarize():
     data = request.get_json()
     url = data.get('url')
     text_input = data.get('text')
+    model = data.get('model', 'gpt-4o-mini')  # Default to gpt-4o-mini if not specified
 
     logger.info(f"Summarize request - URL: {'present' if url else 'none'}, "
-               f"Text: {'present' if text_input else 'none'}")
+               f"Text: {'present' if text_input else 'none'}, Model: {model}")
 
     article_text = None
     error = None
@@ -490,7 +491,7 @@ def handle_summarize():
     if not article_text: # Should be caught by fetcher, but double-check
          return jsonify({"error": "Failed to get article content."}), 500
 
-    summary, error = get_summary(article_text)
+    summary, error = get_summary(article_text, model)
 
     if error:
         return jsonify({"error": error}), 500
@@ -512,13 +513,14 @@ def handle_eli5():
 
     data = request.get_json()
     summary = data.get('summary')
+    model = data.get('model', 'gpt-4o-mini')  # Default to gpt-4o-mini if not specified
     
     if not summary:
         return jsonify({"error": "No summary provided to explain."}), 400
         
-    logger.info("Processing ELI5 request for summary")
+    logger.info(f"Processing ELI5 request for summary using model: {model}")
     
-    explanation, error = explain_like_five(summary)
+    explanation, error = explain_like_five(summary, model)
     
     if error:
         return jsonify({"error": error}), 500
@@ -542,9 +544,10 @@ def handle_file_summarize():
             return jsonify({"error": "No file part in the request"}), 400
             
         file = request.files['file']
+        model = request.form.get('model', 'gpt-4o-mini')  # Get model from form data with default
         
         # Log debugging information
-        logger.info(f"Received file upload: {file.filename}, mimetype: {file.mimetype}")
+        logger.info(f"Received file upload: {file.filename}, mimetype: {file.mimetype}, model: {model}")
         
         # Check if the file has a name
         if file.filename == '':
@@ -567,7 +570,7 @@ def handle_file_summarize():
             return jsonify({"error": "Failed to extract text from the file."}), 500
         
         # Generate summary
-        summary, error = get_summary(article_text)
+        summary, error = get_summary(article_text, model)
         
         if error:
             logger.error(f"Error generating summary: {error}")

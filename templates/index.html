@@ -212,7 +212,10 @@
                     </div>
                 </div>
 
-                <button type="submit" id="summarizeBtn" class="submit-button">Summarize</button>
+                <button type="submit" id="summarizeBtn" class="primary-button">
+                    <span class="button-text">Summarize</span>
+                    <div class="spinner hidden"></div>
+                </button>
             </form>
         </section>
 
@@ -413,7 +416,7 @@
                     };
                     reader.readAsText(file);
                 } else {
-                    // For PDF, DOC, DOCX, RTF - we'll handle these on submission
+                    // For PDF, DOC, etc., we'll handle these on submission
                     uploadedFileContent = file;
                     showToast('File ready for upload');
                 }
@@ -436,6 +439,12 @@
                 summaryOutput.textContent = '';
                 outputArea.style.display = 'none';
                 loadingIndicator.style.display = 'block';
+                
+                // Show loading state in the button
+                const buttonText = submitBtn.querySelector('.button-text');
+                const buttonSpinner = submitBtn.querySelector('.spinner');
+                buttonText.textContent = 'Summarizing...';
+                buttonSpinner.classList.remove('hidden');
                 submitBtn.disabled = true;
                 
                 // Hide ELI5 area when submitting a new summary
@@ -461,6 +470,7 @@
                 
                 try {
                     let response;
+                    const aiModel = "gpt-4o-mini"; // Use the mini model instead of selector
                     
                     if (uploadedFileContent) {
                         // If it's a text file already read as text
@@ -470,13 +480,15 @@
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ 
-                                    text: uploadedFileContent
+                                    text: uploadedFileContent,
+                                    model: aiModel
                                 })
                             });
                         } else {
                             // For PDF, DOC, etc., we need to use FormData
                             const formData = new FormData();
                             formData.append('file', uploadedFileContent);
+                            formData.append('model', aiModel);
                             
                             console.log('Uploading file using FormData');
                             
@@ -492,7 +504,7 @@
                         response = await fetch('/summarize', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ url, text })
+                            body: JSON.stringify({ url, text, model: aiModel })
                         });
                     }
                     
@@ -528,6 +540,12 @@
                 } finally {
                     outputArea.style.display = 'block';
                     loadingIndicator.style.display = 'none';
+                    
+                    // Reset button state
+                    const buttonText = submitBtn.querySelector('.button-text');
+                    const buttonSpinner = submitBtn.querySelector('.spinner');
+                    buttonText.textContent = 'Summarize';
+                    buttonSpinner.classList.add('hidden');
                     submitBtn.disabled = false;
                 }
             });
@@ -662,7 +680,10 @@
         });
 
         eli5Button.addEventListener('click', async () => {
-            if (!originalSummary.trim()) {
+            const summary = document.getElementById('summaryOutput').textContent;
+            const aiModel = "gpt-4o-mini"; // Use the mini model
+            
+            if (!summary.trim()) {
                 showToast('Please generate a summary first.');
                 return;
             }
@@ -678,7 +699,10 @@
                 const response = await fetch('/explain_like_five', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ summary: originalSummary })
+                    body: JSON.stringify({ 
+                        summary: originalSummary,
+                        model: aiModel
+                    })
                 });
                 
                 const data = await response.json();

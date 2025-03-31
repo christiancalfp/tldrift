@@ -747,15 +747,14 @@ html.dark-mode .theme-toggle .moon-icon {
 }
 
 .spinner-small {
-    width: 14px;
-    height: 14px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid var(--accent-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
     display: inline-block;
-    margin-right: 4px;
-    vertical-align: middle;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
 }
 
 /* Add styling for summary output markdown */
@@ -813,4 +812,48 @@ html.dark-mode .theme-toggle .moon-icon {
 /* Remove the custom bullet point styling that might be causing issues */
 #summaryOutput li:before {
     display: none;
+}
+
+.primary-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    width: 100%;
+}
+
+.primary-button:hover {
+    background-color: var(--primary-color-hover);
+}
+
+.primary-button:disabled {
+    background-color: var(--disabled-color);
+    cursor: not-allowed;
+}
+
+.spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+    margin-left: 10px;
+}
+
+.spinner.hidden {
+    display: none;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
