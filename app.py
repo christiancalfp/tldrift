@@ -236,12 +236,13 @@ def get_summary(text):
         # Create a detailed system message that explicitly defines the required format
         system_message = """You are a helpful assistant that creates precise summaries in a specific format.
 
-Your summary MUST consist of exactly two parts:
-1. FIRST: Exactly 3 bullet points using the • character. Each bullet point should be 5-10 words and capture a key insight.
+Your summary MUST consist of exactly 3 parts:
+1. FIRST: TLDR bullet points using the • character. Each bullet point should be 5-10 words and capture a key insight.
 2. SECOND: One detailed paragraph (5-7 sentences) that provides a comprehensive summary of the content.
+3. THIRD: A list of 3-5 interesting facts or anecdotes from the content.
 
-Leave a blank line between the bullet points and paragraph.
-Never include the word 'Summary:' or any headers in your response."""
+Leave a blank line between each part.
+"""
 
         try:
             # Use gpt-3.5-turbo for compatibility
@@ -277,11 +278,6 @@ Never include the word 'Summary:' or any headers in your response."""
                     summary = str(summary_response.choices[0]).strip()
                     
             logger.info("Summary received.")
-            
-            # Clean up any remaining "Summary:" prefix if it somehow appears
-            summary = summary.replace("Summary:", "").strip()
-
-            return summary, None
 
         except Exception as e:
             logger.error(f"Error with summary generation: {e}")
