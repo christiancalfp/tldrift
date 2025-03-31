@@ -20,6 +20,9 @@
     --accent-hover: #0071EB;
     --error-color: #FF3B30;
     --success-color: #34C759;
+    --primary-color: #007AFF;
+    --primary-color-hover: #0071EB;
+    --disabled-color: #86868B;
 }
 
 /* Dark mode colors */
@@ -33,6 +36,8 @@
         --shadow-color: rgba(0, 0, 0, 0.3);
         --accent-color: #0A84FF;
         --accent-hover: #409CFF;
+        --primary-color: #0A84FF;
+        --primary-color-hover: #409CFF;
     }
 }
 
@@ -46,6 +51,8 @@ html.dark-mode {
     --shadow-color: rgba(0, 0, 0, 0.3);
     --accent-color: #0A84FF;
     --accent-hover: #409CFF;
+    --primary-color: #0A84FF;
+    --primary-color-hover: #409CFF;
 }
 
 html.dark-mode .theme-toggle .sun-icon {
