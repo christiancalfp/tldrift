@@ -221,6 +221,18 @@
 
         <section id="outputArea" class="output-section" style="display: none;">
             <h2>Summary:</h2>
+            <div id="timeSavedDisplay" class="time-saved-display" style="display: none;">
+                <div class="time-saved-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <div class="time-saved-text">
+                    You saved <span id="minutesSaved" class="time-saved-value">0</span> minutes
+                    (<span id="percentageSaved" class="time-saved-percentage">0%</span> of reading time)
+                </div>
+            </div>
             <pre id="summaryOutput" aria-live="polite"></pre>
             
             <div id="eli5Area" style="display: none;" class="eli5-section">
@@ -432,6 +444,9 @@
                 summaryOutput.textContent = '';
                 outputArea.style.display = 'none';
                 
+                // Hide time saved display when submitting a new summary
+                document.getElementById('timeSavedDisplay').style.display = 'none';
+                
                 // Show loading state in the button
                 const buttonText = submitBtn.querySelector('.button-text');
                 const buttonSpinner = submitBtn.querySelector('.spinner');
@@ -514,6 +529,18 @@
                             // Convert markdown headers and bullet points to HTML
                             const formattedSummary = formatMarkdown(data.summary);
                             summaryOutput.innerHTML = formattedSummary;
+                            
+                            // Display time saved information if available
+                            if (data.time_saved_info) {
+                                const timeSavedDisplay = document.getElementById('timeSavedDisplay');
+                                const minutesSaved = document.getElementById('minutesSaved');
+                                const percentageSaved = document.getElementById('percentageSaved');
+                                
+                                minutesSaved.textContent = data.time_saved_info.minutes_saved;
+                                percentageSaved.textContent = data.time_saved_info.percentage_saved + '%';
+                                
+                                timeSavedDisplay.style.display = 'flex';
+                            }
                             
                             // Automatically copy to clipboard (plain text version)
                             try {

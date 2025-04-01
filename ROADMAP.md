@@ -4,16 +4,24 @@ This document outlines planned features and enhancements for the TLDR Summarizer
 
 ## Near-Term Priorities (1-3 months)
 
-### 1. History & Saved Summaries
-- **Description**: Allow users to save and manage their summary history
+### 1. User Account System with History Management
+- **Description**: Create user accounts and enable history management across devices
 - **Implementation Details**:
-  - Use localStorage to save summaries locally
-  - Add "Save" button to the share options
-  - Create a "History" tab to access past summaries
-  - Allow naming/renaming saved summaries
-  - Enable deleting unwanted summaries
-- **Complexity**: Medium
-- **User Value**: High
+  - **Phase 1 (Local Storage)**:
+    - Use localStorage to save summaries locally
+    - Add "Save" button to the share options
+    - Create a "History" tab to access past summaries
+    - Allow naming/renaming saved summaries
+    - Enable deleting unwanted summaries
+  - **Phase 2 (Cloud Storage & Accounts)**:
+    - Implement secure authentication system
+    - Create user dashboard
+    - Add profile settings and preferences
+    - Enable cross-device syncing of summaries and settings
+    - Add summary organization with folders/tags
+- **Complexity**: High
+- **User Value**: Very High
+- **Implementation Approach**: Progressive enhancement - start with local storage for immediate value, then add cloud sync when authentication is ready
 
 ### 2. ✅ Dark Mode (Completed)
 - **Description**: Add appearance options for better viewing in different lighting conditions
@@ -74,11 +82,12 @@ This document outlines planned features and enhancements for the TLDR Summarizer
 - **Description**: Improve visual representation of summaries
 - **Implementation Details**:
   - Add concept visualization/mind maps
-  - Create reading time comparison (original vs. summary)
+  - ✅ Create reading time comparison (original vs. summary) ✓
   - Implement progress indicators
   - Add key phrase highlighting
 - **Complexity**: Medium
 - **User Value**: Medium
+- **Partially Completed**: Added "Time Saved" calculation and display that shows users how many minutes they saved by reading the summary instead of the full text. Feature calculates based on average reading speed and word count.
 
 ### 8. Browser Extension
 - **Description**: Create browser extension for instant summarization
@@ -92,16 +101,35 @@ This document outlines planned features and enhancements for the TLDR Summarizer
 
 ## Long-Term Vision (6+ months)
 
-### 9. User Accounts
-- **Description**: Create persistent user accounts for cross-device use
+### 9. Freemium Model with Subscription Tiers
+- **Description**: Implement free and premium tiers with subscription billing
 - **Implementation Details**:
-  - Implement secure authentication system
-  - Create user dashboard
-  - Add profile settings and preferences
-  - Enable cross-device syncing of summaries and settings
-  - Add summary organization with folders/tags
+  - **User Authentication System**:
+    - Secure login/signup system 
+    - User management dashboard
+    - Password reset functionality
+  - **Usage Tracking**:
+    - Track number of summaries generated per user
+    - Implement monthly usage reset mechanism
+    - Add usage indicators in UI (e.g., "3/10 free summaries used this month")
+  - **Payment Processing**:
+    - Integrate Stripe for subscription management
+    - Implement secure checkout flow
+    - Set up webhook handlers for payment events
+    - Create subscription management UI for users
+  - **Access Control**:
+    - Limit free tier to specific number of summaries per month (e.g., 10)
+    - Provide unlimited summaries for premium subscribers
+    - Add premium badge for subscribed users
+  - **Pricing Structure**:
+    - Premium subscription at $5-10/month or $50-100/year
+    - Possible team/business tiers for multiple users
+  - **Upgrade Experience**:
+    - Smooth "upgrade" prompts when free limit reached
+    - Clear demonstration of premium benefits
 - **Complexity**: High
-- **User Value**: Medium-High
+- **User Value**: High (for business sustainability)
+- **Dependencies**: Requires User Accounts (#1) to be implemented first
 
 ### 10. Advanced Analytics
 - **Description**: Provide deeper insights into summarized content

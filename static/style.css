@@ -23,6 +23,19 @@
     --primary-color: #007AFF;
     --primary-color-hover: #0071EB;
     --disabled-color: #86868B;
+    --bg-color: #F7F9FC;
+    --text-color: #333333;
+    --primary-dark: #333FB0;
+    --primary-light: #606FE2;
+    --secondary-color: #747474;
+    --success-bg-color: rgba(52, 199, 89, 0.1);
+    --success-text-color: #28a745;
+    --highlight-bg: #F2F4FE;
+    --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    --border-radius: 8px;
+    --toast-bg: rgba(51, 51, 51, 0.9);
+    --toast-text: #ffffff;
+    --transition-speed: 0.3s;
 }
 
 /* Dark mode colors */
@@ -863,4 +876,39 @@ html.dark-mode .theme-toggle .moon-icon {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* Time Saved Display */
+.time-saved-display {
+    display: flex;
+    align-items: center;
+    background-color: var(--success-bg-color);
+    border-radius: 6px;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    color: var(--success-text-color);
+    font-size: 14px;
+    max-width: fit-content;
+}
+
+.dark-mode .time-saved-display {
+    background-color: rgba(39, 174, 96, 0.15);
+    color: #2ecc71;
+}
+
+.time-saved-icon {
+    margin-right: 10px;
+}
+
+.time-saved-value {
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.dark-mode .time-saved-value {
+    color: #2ecc71;
+}
+
+.time-saved-percentage {
+    font-weight: 700;
 }

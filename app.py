@@ -210,9 +210,9 @@ def fetch_article_text(url):
 def get_summary(text, model="gpt-4o-mini"):
     """Generates summary using OpenAI API in a combined format with bullet points and paragraph."""
     if not text or not text.strip():
-         return None, "Input text is empty."
+         return None, None, "Input text is empty."
     if not client: # Check if client initialized correctly
-        return None, "OpenAI client not initialized."
+        return None, None, "OpenAI client not initialized."
 
     try:
         # Summarize the text in the combined format (3 bullet points + 1 paragraph)
@@ -289,17 +289,37 @@ Keep the exact section headers as shown above.
                     summary = str(summary_response.choices[0]).strip()
                     
             logger.info("Summary received.")
-            return summary, None  # Add this return statement to return the summary and no error
+            
+            # Calculate the time saved (words per minute reading speed)
+            words_per_minute = 200  # Average reading speed
+            original_word_count = len(text.split())
+            summary_word_count = len(summary.split())
+            
+            original_reading_time = original_word_count / words_per_minute
+            summary_reading_time = summary_word_count / words_per_minute
+            time_saved = original_reading_time - summary_reading_time
+            
+            time_saved_info = {
+                "original_word_count": original_word_count,
+                "summary_word_count": summary_word_count,
+                "original_minutes": round(original_reading_time, 1),
+                "summary_minutes": round(summary_reading_time, 1),
+                "minutes_saved": round(time_saved, 1),
+                "percentage_saved": round((time_saved / original_reading_time) * 100 if original_reading_time > 0 else 0, 1)
+            }
+            
+            logger.info(f"Time saved calculated: {time_saved_info}")
+            return summary, time_saved_info, None  # Return summary, time saved info, and no error
 
         except Exception as e:
             logger.error(f"Error with summary generation: {e}")
             logger.error(f"Exception type: {type(e).__name__}")
-            return None, f"Failed to generate summary: {str(e)}"
+            return None, None, f"Failed to generate summary: {str(e)}"
             
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
         logger.error(f"Exception type: {type(e).__name__}")
-        return None, f"Failed to get summary from AI. Error: {e}"
+        return None, None, f"Failed to get summary from AI. Error: {e}"
 
 def explain_like_five(summary, model="gpt-4o-mini"):
     """Takes a summary and explains it in simple terms a 5-year-old would understand."""
@@ -491,12 +511,12 @@ def handle_summarize():
     if not article_text: # Should be caught by fetcher, but double-check
          return jsonify({"error": "Failed to get article content."}), 500
 
-    summary, error = get_summary(article_text, model)
+    summary, time_saved_info, error = get_summary(article_text, model)
 
     if error:
         return jsonify({"error": error}), 500
 
-    return jsonify({"summary": summary})
+    return jsonify({"summary": summary, "time_saved_info": time_saved_info})
 
 @app.route('/explain_like_five', methods=['POST'])
 def handle_eli5():
@@ -570,13 +590,13 @@ def handle_file_summarize():
             return jsonify({"error": "Failed to extract text from the file."}), 500
         
         # Generate summary
-        summary, error = get_summary(article_text, model)
+        summary, time_saved_info, error = get_summary(article_text, model)
         
         if error:
             logger.error(f"Error generating summary: {error}")
             return jsonify({"error": error}), 500
 
-        return jsonify({"summary": summary})
+        return jsonify({"summary": summary, "time_saved_info": time_saved_info})
     
     except Exception as e:
         logger.exception(f"Unexpected error in file upload handler: {e}")
